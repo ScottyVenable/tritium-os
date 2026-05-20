@@ -5,6 +5,17 @@ test.describe('Tritium OS E2E Shell Verification Suite', () => {
   test.beforeEach(async ({ page }) => {
     // Access local dev server
     await page.goto('/');
+
+    // Disable smooth scrolling and CSS transitions/animations for E2E determinism
+    await page.addStyleTag({
+      content: `
+        * {
+          scroll-behavior: auto !important;
+          transition: none !important;
+          animation: none !important;
+        }
+      `
+    });
   });
 
   test('Unlock lockscreen, skip onboarding, verify Phone Mode, and switch layouts', async ({ page }) => {
@@ -59,6 +70,16 @@ test.describe('Tritium OS E2E Shell Verification Suite', () => {
     await expect(windowHeader).toBeVisible();
     await expect(page.locator('text=TERMINAL - Core Client')).toBeVisible();
 
+    // Blur active element and reset scroll on all DOM elements to guarantee coordinates stability
+    await page.evaluate(() => {
+      (document.activeElement as HTMLElement)?.blur();
+      window.scrollTo(0, 0);
+      document.querySelectorAll('*').forEach((el) => {
+        el.scrollTop = 0;
+        el.scrollLeft = 0;
+      });
+    });
+
     // Test dragging window container coordinates
     const initialBox = await page.locator('.window-container').boundingBox();
     expect(initialBox).not.toBeNull();
@@ -68,9 +89,6 @@ test.describe('Tritium OS E2E Shell Verification Suite', () => {
       expect(headerBox).not.toBeNull();
       
       if (headerBox) {
-        console.log('--- DEBUG DRAG ---');
-        console.log('initialBox:', initialBox);
-        console.log('headerBox:', headerBox);
         // Drag window by the header
         await page.mouse.move(headerBox.x + headerBox.width / 2, headerBox.y + headerBox.height / 2);
         await page.mouse.down();
@@ -78,8 +96,6 @@ test.describe('Tritium OS E2E Shell Verification Suite', () => {
         await page.mouse.up();
 
         const newBox = await page.locator('.window-container').boundingBox();
-        console.log('newBox:', newBox);
-        console.log('------------------');
         expect(newBox).not.toBeNull();
         if (newBox) {
           // X and Y coordinates should have changed
